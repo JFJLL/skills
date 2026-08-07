@@ -1,0 +1,4 @@
+interface:
+  display_name: "Verify Change"
+  short_description: "Route changes through tests, Kimi browser QA, and review"
+  default_prompt: "Use $verify-change to verify the current diff and produce a fresh verification receipt."

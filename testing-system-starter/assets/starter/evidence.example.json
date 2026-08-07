@@ -1,0 +1,13 @@
+{
+  "fingerprint": "COPY_FROM_PLAN_ONLY_OUTPUT",
+  "lanes": {
+    "kimi-browser": {
+      "status": "pass",
+      "artifact": "artifacts/verification/kimi-browser-qa.md"
+    },
+    "agent-review": {
+      "status": "pass",
+      "artifact": "artifacts/verification/adversarial-review.json"
+    }
+  }
+}

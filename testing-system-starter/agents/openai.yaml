@@ -1,0 +1,4 @@
+interface:
+  display_name: "Testing System Starter"
+  short_description: "Install risk-routed testing with Kimi browser QA"
+  default_prompt: "Use $testing-system-starter to install the verification system into the current project without enabling hooks."
