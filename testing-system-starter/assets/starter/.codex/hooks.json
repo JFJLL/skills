@@ -1,19 +1,5 @@
 {
   "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "^(apply_patch|Edit|Write)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "pwsh -NoProfile -Command \"& (Join-Path (& git rev-parse --show-toplevel) '.codex/hooks/mark-verification-dirty.ps1')\"",
-            "commandWindows": "pwsh -NoProfile -Command \"& (Join-Path (& git rev-parse --show-toplevel) '.codex/hooks/mark-verification-dirty.ps1')\"",
-            "timeout": 15,
-            "statusMessage": "Marking verification state dirty"
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [
@@ -21,8 +7,8 @@
             "type": "command",
             "command": "pwsh -NoProfile -Command \"& (Join-Path (& git rev-parse --show-toplevel) '.codex/hooks/stop-verification-gate.ps1')\"",
             "commandWindows": "pwsh -NoProfile -Command \"& (Join-Path (& git rev-parse --show-toplevel) '.codex/hooks/stop-verification-gate.ps1')\"",
-            "timeout": 30,
-            "statusMessage": "Checking verification receipt"
+            "timeout": 60,
+            "statusMessage": "Checking verification receipt freshness"
           }
         ]
       }

@@ -9,11 +9,8 @@ if ($LASTEXITCODE -ne 0 -or -not $root) { exit 0 }
 $root = [IO.Path]::GetFullPath(($root | Select-Object -First 1))
 
 $policyPath = Join-Path $root "verification-policy.json"
-$dirtyPath = Join-Path $root ".verification/dirty.json"
 $verifierPath = Join-Path $root "scripts/verify-change.ps1"
 if (-not (Test-Path -LiteralPath $policyPath -PathType Leaf)) { exit 0 }
-if (-not (Test-Path -LiteralPath $dirtyPath -PathType Leaf)) { exit 0 }
-
 if (-not (Test-Path -LiteralPath $verifierPath -PathType Leaf)) {
     [ordered]@{
         continue = $false
@@ -25,10 +22,7 @@ if (-not (Test-Path -LiteralPath $verifierPath -PathType Leaf)) {
 
 $checkOutput = @(& pwsh -NoProfile -File $verifierPath -CheckReceipt 2>&1)
 $checkExit = $LASTEXITCODE
-if ($checkExit -eq 0) {
-    if (Test-Path -LiteralPath $dirtyPath) { Remove-Item -LiteralPath $dirtyPath -Force }
-    exit 0
-}
+if ($checkExit -eq 0) { exit 0 }
 
 $detail = ($checkOutput | Select-Object -Last 1)
 [ordered]@{

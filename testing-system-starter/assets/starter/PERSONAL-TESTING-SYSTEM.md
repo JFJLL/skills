@@ -1,5 +1,7 @@
 # 适合刘昊的 Vibe Coding 测试体系
 
+> V2 更新（2026-08）：验证引擎已升级为 base-aware change set（merge-base 策略，删除/重命名/已提交改动均参与路由）、changeSetHash + policy/runner/evidence 哈希绑定、RiskFloor（只能升不能降）、解释性 PlanOnly、-InitEvidence、agent-review 双轴收敛协议（最多 3 轮，超限升级给用户）、Kimi 条件化 case 与封装脚本。receipt schemaVersion 2，旧 v1 receipt 视为 stale。本文件其余章节为体系背景与落地节奏说明。
+
 ## 结论
 
 你的下一阶段重点不是继续增加“审查类型”，而是建立一条统一验收链：

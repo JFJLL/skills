@@ -20,7 +20,7 @@ jobs:
 
       - run: npm ci
 
-      - name: Run risk-routed verification
+      - name: Run risk-routed verification (CI mode, merge-base aware)
         shell: pwsh
         run: ./scripts/verify-change.ps1 -Mode ci -ReceiptPath .verification/ci-receipt.json
 

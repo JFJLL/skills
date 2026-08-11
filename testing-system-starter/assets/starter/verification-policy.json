@@ -1,5 +1,6 @@
 {
-  "version": 1,
+  "schemaVersion": 2,
+  "version": 2,
   "defaultRisk": "R1",
   "riskOrder": {
     "R0": 0,
@@ -7,59 +8,80 @@
     "R2": 2,
     "R3": 3
   },
+  "changeScope": {
+    "strategy": "merge-base",
+    "baseRef": "origin/main",
+    "includeUntracked": true,
+    "excludePaths": [
+      "^\\.verification/",
+      "^artifacts/verification/",
+      "(^|/)node_modules/",
+      "\\.db$",
+      "\\.db-shm$",
+      "\\.db-wal$",
+      "(^|/)dist/",
+      "\\.exe$"
+    ]
+  },
   "baseLanes": {
     "R0": ["static"],
     "R1": ["static", "unit"],
-    "R2": ["static", "unit", "build"],
-    "R3": ["static", "unit", "build", "smoke"]
+    "R2": ["static", "unit", "integration"],
+    "R3": ["static", "unit", "integration", "smoke"]
   },
   "routes": [
     {
       "id": "docs-only",
       "risk": "R0",
-      "patterns": ["(^|/)docs?/", "\\.md$", "\\.txt$"],
+      "includeAny": ["(^|/)docs?/", "\\.md$", "\\.txt$"],
       "addLanes": []
     },
     {
       "id": "user-interface",
       "risk": "R2",
-      "patterns": ["(^|/)(app|pages|public|components|ui)/", "\\.(tsx|jsx|vue|svelte|css|scss|less)$"],
-      "addLanes": ["kimi-browser"]
+      "includeAll": ["(^|/)(frontend|web|app|pages|public|components|ui)/", "\\.(tsx|jsx|vue|svelte|css|scss|less)$"],
+      "exclude": ["(^|/)backend/", "(^|/)server/", "(^|/)api/"],
+      "addLanes": ["kimi-browser"],
+      "evidenceCases": ["KIMI-001"]
     },
     {
       "id": "api-contract",
       "risk": "R2",
-      "patterns": ["(^|/)(api|routes?|controllers?|server)/", "openapi", "schema\\.(json|ya?ml)$"],
+      "includeAny": ["(^|/)(api|routes?|controllers?|server)/", "openapi", "schema\\.(json|ya?ml)$"],
       "addLanes": ["integration"]
     },
     {
       "id": "ai-behavior",
       "risk": "R2",
-      "patterns": ["(^|/)(ai|llm|prompts?|agents?|models?|evals?)/", "(prompt|provider|generation|inference)"],
-      "addLanes": ["ai-eval", "agent-review"]
+      "includeAny": ["(^|/)(ai|llm|prompts?|agents?|evals?|models?)/", "(prompt|inference)"],
+      "exclude": ["(^|/)components/", "\\.test\\.", "spec\\."],
+      "addLanes": ["ai-eval", "agent-review"],
+      "evidenceCases": ["KIMI-001", "KIMI-006"]
     },
     {
       "id": "data-state",
       "risk": "R3",
-      "patterns": ["(^|/)(db|database|migrations?|prisma|repositories|storage)/", "(schema|migration|repository|persistence)"],
+      "includeAny": ["(^|/)(db|database|migrations?|prisma|repositories|storage)/", "(schema|migration|repository|persistence)"],
       "addLanes": ["integration", "data", "agent-review"]
     },
     {
       "id": "critical-user-journey",
       "risk": "R3",
-      "patterns": ["(auth|permission|tenant|credit|billing|payment|cookie|session)"],
-      "addLanes": ["integration", "kimi-browser", "agent-review"]
+      "includeAny": ["(auth|permission|tenant|credit|billing|payment|cookie|session)"],
+      "exclude": ["(^|/)docs?/", "\\.md$", "\\.txt$", "\\.test\\.", "spec\\."],
+      "addLanes": ["integration", "kimi-browser", "agent-review"],
+      "evidenceCases": ["KIMI-001", "KIMI-004"]
     },
     {
       "id": "critical-processing",
       "risk": "R3",
-      "patterns": ["(queue|worker|retry|idempot)"],
+      "includeAny": ["(queue|worker|retry|idempot)"],
       "addLanes": ["integration", "agent-review"]
     },
     {
       "id": "deployment",
       "risk": "R3",
-      "patterns": ["(^|/)(deploy|infra|docker|scripts/release|\\.github/workflows)/", "(Dockerfile|wrangler\\.toml|nginx)"],
+      "includeAny": ["(^|/)(deploy|infra|docker|scripts/release|\\.github/workflows)/", "(Dockerfile|wrangler\\.toml|nginx)"],
       "addLanes": ["smoke", "agent-review"]
     }
   ],
@@ -69,7 +91,7 @@
       "modes": ["local", "ci"],
       "minExecuted": 1,
       "commands": [
-        {"id": "diff-check", "program": "git", "args": ["diff", "--check"], "required": true},
+        {"id": "diff-check", "program": "git", "args": ["diff", "--check"], "required": true, "hygiene": true},
         {"id": "project-check", "program": "npm.cmd", "args": ["run", "check"], "npmScript": "check", "required": false},
         {"id": "typecheck", "program": "npm.cmd", "args": ["run", "typecheck"], "npmScript": "typecheck", "required": false},
         {"id": "lint", "program": "npm.cmd", "args": ["run", "lint"], "npmScript": "lint", "required": false}
@@ -101,7 +123,7 @@
     },
     "smoke": {
       "kind": "command",
-      "modes": ["local", "ci"],
+      "modes": ["local", "ci", "release"],
       "minExecuted": 1,
       "commands": [
         {"id": "smoke", "program": "npm.cmd", "args": ["run", "smoke"], "npmScript": "smoke", "required": false},

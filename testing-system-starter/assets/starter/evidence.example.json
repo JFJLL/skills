@@ -1,13 +1,16 @@
 {
-  "fingerprint": "COPY_FROM_PLAN_ONLY_OUTPUT",
+  "schemaVersion": 2,
+  "changeSetHash": "COPY_FROM_PLAN_ONLY_OUTPUT",
+  "baseRef": "origin/main",
+  "baseSha": "",
   "lanes": {
     "kimi-browser": {
-      "status": "pass",
+      "status": "pending",
       "artifact": "artifacts/verification/kimi-browser-qa.md"
     },
     "agent-review": {
-      "status": "pass",
-      "artifact": "artifacts/verification/adversarial-review.json"
+      "status": "pending",
+      "artifact": "artifacts/verification/agent-review.json"
     }
   }
 }
