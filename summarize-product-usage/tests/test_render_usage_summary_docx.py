@@ -869,5 +869,124 @@ class TestV21Fixes(RendererTestBase):
         self.assertTrue(any("图 2：首页" in p for p in paras))
 
 
+class TestV22Fixes(RendererTestBase):
+    """Regression tests for the V2.2 final compatibility round."""
+
+    def render_with(self, tasks, modules, at_a_glance=None, **extra):
+        data = {"title": "V2.2 测试", "tasks": tasks, "modules": modules}
+        if at_a_glance is not None:
+            data["at_a_glance"] = at_a_glance
+        data.update(extra)
+        return self.render_data(data)
+
+    def trend_module(self) -> dict:
+        return {
+            "name": "趋势洞察",
+            "purpose": "查看热点。",
+            "sections": [{"heading": "怎么操作", "kind": "steps", "items": ["打开「趋势洞察」。"]}],
+        }
+
+    def test_numeric_table_value_preserved(self) -> None:
+        data = self.load_fixture("legacy.json")
+        data["modules"][0]["sections"].append(
+            {
+                "heading": "使用限制",
+                "kind": "table",
+                "rows": [["最大文件数量", 10], ["每次消耗额度", 2], ["最大文件大小", 100]],
+            }
+        )
+        texts = all_texts(self.open_docx(self.render_data(data)))
+        joined = "\n".join(texts)
+        self.assertIn("10", joined)
+        self.assertIn("2", joined)
+        self.assertIn("100", joined)
+        self.assertNotIn("[", joined)
+        self.assertNotIn("]", joined)
+
+    def test_numeric_scalar_user_facing_preserved(self) -> None:
+        tasks = [
+            {
+                "title": "生成任务",
+                "priority": "core",
+                "steps": ["打开系统。"],
+                "result": 10,
+            }
+        ]
+        texts = all_texts(self.open_docx(self.render_with(tasks, [], quota_rules=100)))
+        self.assertIn("10", texts)
+        self.assertIn("100", texts)
+
+    def test_bool_not_output(self) -> None:
+        tasks = [{"title": "任务", "priority": "core", "steps": ["打开系统。"]}]
+        paras = [p.text for p in self.open_docx(self.render_with(tasks, [], quota_rules=True)).paragraphs]
+        self.assertNotIn("True", paras)
+        self.assertNotIn("False", paras)
+
+    def test_list_mixed_numeric_no_repr(self) -> None:
+        tasks = [
+            {
+                "title": "上传任务",
+                "priority": "core",
+                "steps": ["打开系统。"],
+                "common_problems": [{"question": "可以上传多少？", "answer": ["最多", 10, "次"]}],
+            }
+        ]
+        paras = [p.text for p in self.open_docx(self.render_with(tasks, [])).paragraphs]
+        self.assertIn("最多；10；次", paras)
+        self.assertFalse(any("[" in p or "]" in p or "'" in p for p in paras))
+
+    def test_malformed_covers_string_activates_explicit_mode(self) -> None:
+        tasks = [
+            {
+                "title": "看热点",
+                "entry": "左侧菜单「趋势洞察」",
+                "covers_modules": "历史记录",
+                "priority": "core",
+                "steps": ["打开系统。"],
+            }
+        ]
+        paras = [p.text for p in self.open_docx(self.render_with(tasks, [self.trend_module()])).paragraphs]
+        # Explicit mode active (key present, malformed value): the module is
+        # NOT covered and must render in full.
+        self.assertIn("怎么操作", paras)
+        self.assertIn("1. 打开「趋势洞察」。", paras)
+
+    def test_malformed_covers_dict_activates_explicit_mode(self) -> None:
+        tasks = [
+            {
+                "title": "看热点",
+                "entry": "左侧菜单「趋势洞察」",
+                "covers_modules": {"name": "趋势洞察"},
+                "priority": "core",
+                "steps": ["打开系统。"],
+            }
+        ]
+        paras = [p.text for p in self.open_docx(self.render_with(tasks, [self.trend_module()])).paragraphs]
+        self.assertIn("怎么操作", paras)
+
+    def test_covers_null_activates_explicit_mode(self) -> None:
+        tasks = [
+            {
+                "title": "看热点",
+                "entry": "左侧菜单「趋势洞察」",
+                "covers_modules": None,
+                "priority": "core",
+                "steps": ["打开系统。"],
+            }
+        ]
+        paras = [p.text for p in self.open_docx(self.render_with(tasks, [self.trend_module()])).paragraphs]
+        self.assertIn("怎么操作", paras)
+
+    def test_non_finite_float_filtered(self) -> None:
+        renderer = load_renderer()
+        self.assertEqual(renderer.plain_text(float("nan")), "")
+        self.assertEqual(renderer.plain_text(float("inf")), "")
+        self.assertEqual(renderer.plain_text(float("-inf")), "")
+        self.assertEqual(renderer.plain_text([1.5, float("nan"), "次"]), "1.5；次")
+        self.assertEqual(renderer.plain_text(2), "2")
+        self.assertEqual(renderer.plain_text(True), "")
+        self.assertEqual(renderer.plain_text(False), "")
+
+
 if __name__ == "__main__":
     unittest.main()

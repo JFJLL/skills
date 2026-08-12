@@ -47,7 +47,7 @@ Keep the real entry name next to each task:
 
 Only fall back to a module-oriented structure (按模块/页面) when the product genuinely has no task-shaped workflows.
 
-When both `tasks` and `modules` exist, declare the mapping explicitly with `covers_modules` on each task (exact `modules[].name` matches). Only declare a module covered after its usage-affecting limits, steps, results, and warnings are actually inside the task. Without `covers_modules`, the renderer falls back to matching module names inside「」in task entries; this heuristic must not be relied on as the primary business relationship.
+When both `tasks` and `modules` exist, declare the mapping explicitly with `covers_modules` on each task (exact `modules[].name` matches). Only declare a module covered after its usage-affecting limits, steps, results, and warnings are actually inside the task. Once any task contains the `covers_modules` key, explicit mode is active; malformed/non-list values cover nothing and never reactivate heuristic matching. Only when no task contains the key does the renderer fall back to matching module names inside「」in task entries; that heuristic must not be relied on as the primary business relationship.
 
 ## Weighting: core / supporting / reference
 

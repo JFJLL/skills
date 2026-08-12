@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -47,15 +48,34 @@ def plain_text(value: Any) -> str:
     """Unified user-facing text helper.
 
     - str: trimmed as-is.
-    - list: string items joined with 「；」; non-string items are skipped.
-    - anything else (dict, number, bool, nested structures): empty string.
+    - bool: empty string (checked before int, since bool subclasses int).
+    - int / float: converted via str().
+    - non-finite float (NaN / Infinity): empty string.
+    - list: only legal string and numeric scalar items kept, joined with 「；」.
+    - anything else (dict, nested structures): empty string.
 
     Never leaks a Python repr into the document.
     """
     if isinstance(value, str):
         return value.strip()
+    if isinstance(value, bool):
+        return ""
+    if isinstance(value, (int, float)):
+        if isinstance(value, float) and not math.isfinite(value):
+            return ""
+        return str(value)
     if isinstance(value, list):
-        return "；".join(item.strip() for item in value if isinstance(item, str) and item.strip())
+        parts = []
+        for item in value:
+            if isinstance(item, str) and item.strip():
+                parts.append(item.strip())
+            elif isinstance(item, bool):
+                continue
+            elif isinstance(item, (int, float)):
+                if isinstance(item, float) and not math.isfinite(item):
+                    continue
+                parts.append(str(item))
+        return "；".join(parts)
     return ""
 
 
@@ -521,15 +541,22 @@ ENTRY_FRAGMENT_RE = re.compile(r"「([^」]+)」")
 def module_covered_by_tasks(module_name: str, tasks: list[dict[str, Any]]) -> bool:
     """True when a task already carries this module's usage details.
 
-    Explicit mapping wins: if any task provides ``covers_modules``, only
-    those exact names count (entry text is NOT consulted). Otherwise, fall
-    back to the legacy heuristic that matches module names inside「」in
-    task entries (exact fragment match, no substring false positives).
+    Explicit mapping wins: as soon as ANY task contains the ``covers_modules``
+    key, explicit mode is active and only valid list entries count (entry text
+    is NEVER consulted). Malformed values (string / dict / number / bool /
+    null) cover nothing and never reactivate entry-based heuristic matching.
+    Only when NO task contains the key do we fall back to the legacy heuristic
+    that matches module names inside「」in task entries (exact fragment match,
+    no substring false positives).
     """
-    has_explicit = any("covers_modules" in task and isinstance(task.get("covers_modules"), list) for task in tasks)
+    has_explicit = any("covers_modules" in task for task in tasks)
     if has_explicit:
         for task in tasks:
-            for name in as_list(task.get("covers_modules")):
+            value = task.get("covers_modules")
+            if not isinstance(value, list):
+                # Malformed input: covers nothing by design.
+                continue
+            for name in value:
                 if plain_text(name) == module_name:
                     return True
         return False
