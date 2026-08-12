@@ -267,12 +267,15 @@ class TestV2(RendererTestBase):
         self.assertIn("2. 点击「开始生成」。", joined)
         self.assertIn("任务状态变为「处理中」", joined)
 
-    def test_step_screenshot_inserted_once(self) -> None:
+    def test_step_screenshot_local_dedupe_and_cross_section_repeat(self) -> None:
         out = self.render_fixture("full-v2.json")
         doc = self.open_docx(out)
-        self.assertEqual(len(doc.inline_shapes), 1)
+        # Same image referenced at step + task level inside task 1 is
+        # deduplicated; the same file may repeat in other tasks.
+        self.assertEqual(len(doc.inline_shapes), 2)
         paras = [p.text for p in doc.paragraphs]
         self.assertTrue(any("图 1：趋势列表" in p for p in paras))
+        self.assertTrue(any("图 2：历史记录页面" in p for p in paras))
 
     def test_common_problems(self) -> None:
         out = self.render_fixture("full-v2.json")
@@ -680,6 +683,190 @@ class TestBoundaries(RendererTestBase):
         paras = [p.text for p in self.open_docx(out).paragraphs]
         self.assertIn("推荐使用流程", paras)
         self.assertIn("1. 先看趋势确认方向。", paras)
+
+
+class TestV21Fixes(RendererTestBase):
+    """Regression tests for the V2.1 hardening round."""
+
+    def module_data(self) -> dict:
+        return {
+            "name": "趋势洞察",
+            "purpose": "查看热点与内容方向。",
+            "sections": [
+                {"heading": "怎么操作", "kind": "steps", "items": ["打开「趋势洞察」。", "点击「查看」。"]}
+            ],
+        }
+
+    def render_with(self, tasks, modules, at_a_glance=None, **extra):
+        data = {"title": "V2.1 测试", "tasks": tasks, "modules": modules}
+        if at_a_glance is not None:
+            data["at_a_glance"] = at_a_glance
+        data.update(extra)
+        return self.render_data(data)
+
+    def test_covers_modules_explicit_mapping(self) -> None:
+        tasks = [
+            {
+                "title": "我要看看最近有什么热点",
+                "entry": "左侧菜单 > 趋势洞察",
+                "covers_modules": ["趋势洞察"],
+                "priority": "core",
+                "steps": ["打开「趋势洞察」。", "点击「查看」。"],
+            }
+        ]
+        paras = [p.text for p in self.open_docx(self.render_with(tasks, [self.module_data()])).paragraphs]
+        self.assertIn("功能索引", paras)
+        self.assertIn("查看热点与内容方向。", paras)
+        # Covered module stays an index entry: sections are not re-rendered.
+        self.assertNotIn("怎么操作", paras)
+
+    def test_covers_modules_overrides_entry_heuristic(self) -> None:
+        tasks = [
+            {
+                "title": "我要看看最近有什么热点",
+                "entry": "通过「趋势洞察」进入",
+                "covers_modules": ["另一个模块"],
+                "priority": "core",
+                "steps": ["打开系统。"],
+            }
+        ]
+        paras = [p.text for p in self.open_docx(self.render_with(tasks, [self.module_data()])).paragraphs]
+        # Explicit covers_modules wins: 「趋势洞察」 in entry must NOT mark
+        # the module as covered; it renders in full.
+        self.assertIn("怎么操作", paras)
+        self.assertIn("1. 打开「趋势洞察」。", paras)
+
+    def test_heuristic_fallback_without_covers_modules(self) -> None:
+        tasks = [
+            {
+                "title": "我要看看最近有什么热点",
+                "entry": "左侧菜单「趋势洞察」",
+                "priority": "core",
+                "steps": ["打开「趋势洞察」。", "点击「查看」。"],
+            }
+        ]
+        paras = [p.text for p in self.open_docx(self.render_with(tasks, [self.module_data()])).paragraphs]
+        self.assertIn("功能索引", paras)
+        self.assertNotIn("怎么操作", paras)
+
+    def test_supporting_result_rendered(self) -> None:
+        tasks = [
+            {
+                "title": "我要下载历史结果",
+                "priority": "supporting",
+                "steps": ["打开「历史记录」。", "点击「下载」。"],
+                "result": "点击下载后浏览器开始保存文件。",
+            }
+        ]
+        paras = [p.text for p in self.open_docx(self.render_with(tasks, [])).paragraphs]
+        self.assertIn("完成后你会看到", paras)
+        self.assertIn("点击下载后浏览器开始保存文件。", paras)
+
+    def test_supporting_common_problems_rendered(self) -> None:
+        tasks = [
+            {
+                "title": "我要下载历史结果",
+                "priority": "supporting",
+                "steps": ["打开「历史记录」。", "点击「下载」。"],
+                "common_problems": [
+                    {"question": "为什么下载没有反应？", "answer": "请确认任务已经完成。"}
+                ],
+            }
+        ]
+        paras = [p.text for p in self.open_docx(self.render_with(tasks, [])).paragraphs]
+        self.assertIn("Q：为什么下载没有反应？", paras)
+        self.assertIn("请确认任务已经完成。", paras)
+
+    def test_top_tasks_fallback_from_tasks(self) -> None:
+        tasks = [
+            {"title": "我要查看最近热点", "priority": "core", "steps": ["打开系统。"]},
+            {"title": "我要生成内容", "priority": "core", "steps": ["打开系统。"]},
+        ]
+        at_a_glance = {"what_it_does": "一句话说明。"}
+        paras = [p.text for p in self.open_docx(self.render_with(tasks, [], at_a_glance)).paragraphs]
+        self.assertIn("最常用的几件事", paras)
+        self.assertIn("我要查看最近热点", paras)
+        self.assertIn("我要生成内容", paras)
+
+    def test_top_tasks_primary_source_deduped(self) -> None:
+        tasks = [{"title": "我要查看最近热点", "priority": "core", "steps": ["打开系统。"]}]
+        at_a_glance = {"top_tasks": ["热点", "热点", "内容", "内容", "历史", "历史"]}
+        paras = [p.text for p in self.open_docx(self.render_with(tasks, [], at_a_glance)).paragraphs]
+        self.assertEqual(sum(1 for p in paras if p == "热点"), 1)
+        self.assertEqual(sum(1 for p in paras if p == "内容"), 1)
+        self.assertIn("历史", paras)
+
+    def test_tasks_fallback_priority_over_modules(self) -> None:
+        tasks = [
+            {"title": "我要查看最近热点", "priority": "core", "steps": ["打开系统。"]},
+            {"title": "我要生成内容", "priority": "core", "steps": ["打开系统。"]},
+        ]
+        modules = [{"name": "模块甲", "purpose": "甲。"}, {"name": "模块乙", "purpose": "乙。"}]
+        paras = [p.text for p in self.open_docx(self.render_with(tasks, modules)).paragraphs]
+        # Page 1 uses task titles; module names only appear later in the index.
+        self.assertLess(paras.index("我要查看最近热点"), paras.index("模块甲"))
+        self.assertIn("我要生成内容", paras)
+
+    def test_common_problem_answer_list_no_repr(self) -> None:
+        tasks = [
+            {
+                "title": "生成失败处理",
+                "priority": "core",
+                "steps": ["打开系统。"],
+                "common_problems": [{"question": "生成失败怎么办？", "answer": ["稍后重试", "联系管理员"]}],
+            }
+        ]
+        paras = [p.text for p in self.open_docx(self.render_with(tasks, [])).paragraphs]
+        self.assertIn("稍后重试；联系管理员", paras)
+        self.assertFalse(any("[" in p and "]" in p for p in paras))
+
+    def test_dict_never_leaks_repr(self) -> None:
+        tasks = [
+            {
+                "title": "我要查看热点",
+                "priority": "core",
+                "purpose": {"unexpected": "value"},
+                "steps": ["打开系统。"],
+            }
+        ]
+        paras = [p.text for p in self.open_docx(self.render_with(tasks, [])).paragraphs]
+        self.assertNotIn("unexpected", paras)
+        self.assertFalse(any("{" in p or "'" in p for p in paras))
+
+    def test_same_task_screenshot_deduped(self) -> None:
+        tasks = [
+            {
+                "title": "趋势任务",
+                "priority": "core",
+                "steps": [
+                    {"action": "点击「查看」。", "screenshot": {"path": str(self.png), "caption": "步骤截图"}}
+                ],
+                "screenshots": [{"path": str(self.png), "caption": "任务兜底截图"}],
+            }
+        ]
+        doc = self.open_docx(self.render_with(tasks, []))
+        self.assertEqual(len(doc.inline_shapes), 1)
+        paras = [p.text for p in doc.paragraphs]
+        self.assertTrue(any("图 1：步骤截图" in p for p in paras))
+
+    def test_cross_task_same_image_repeated(self) -> None:
+        tasks = [
+            {
+                "title": "任务甲",
+                "priority": "core",
+                "steps": [{"action": "打开首页。", "screenshot": {"path": str(self.png), "caption": "首页"}}],
+            },
+            {
+                "title": "任务乙",
+                "priority": "core",
+                "steps": [{"action": "回到首页。", "screenshot": {"path": str(self.png), "caption": "首页"}}],
+            },
+        ]
+        doc = self.open_docx(self.render_with(tasks, []))
+        self.assertEqual(len(doc.inline_shapes), 2)
+        paras = [p.text for p in doc.paragraphs]
+        self.assertTrue(any("图 1：首页" in p for p in paras))
+        self.assertTrue(any("图 2：首页" in p for p in paras))
 
 
 if __name__ == "__main__":

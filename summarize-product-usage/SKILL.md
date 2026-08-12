@@ -159,7 +159,7 @@ Drives the first page「3 分钟了解这个产品」:
 - `top_tasks`: 3-5 things the product is most often used for.
 - `before_you_start`: only the 2-4 things that genuinely matter before starting.
 
-If these fields are absent, the renderer falls back to `overview`, `quick_start`, module names, and `usage_rules` automatically.
+If these fields are absent, the renderer falls back in this order: `overview` (for `what_it_does`), `quick_start` (for「第一次建议这样用」), task titles then module names (for「最常用的几件事」, max 5, deduplicated), and `usage_rules` (for「开始前要知道」) automatically.
 When `usage_rules` is used as the「开始前要知道」fallback, the same items are not repeated in the later「使用规范」section (only the remainder is rendered there).
 
 ### `tasks`（主要阅读结构）
@@ -170,13 +170,14 @@ When `tasks` exists, the renderer uses the task-oriented structure first. `tasks
 - `entry`: the real menu/page/button name, e.g. 左侧菜单「历史记录」.
 - `purpose`: one short paragraph.
 - `prerequisites`: what must be true before starting.
-- `priority`: `core` / `supporting` / `reference`. The renderer gives core tasks the full treatment (prerequisites, steps, expected results, common problems, screenshots); supporting tasks render purpose, entry, prerequisites, steps, and screenshots (result and common problems are not rendered); reference tasks render purpose, entry, and steps only (screenshots and problem sections are not rendered).
+- `priority`: `core` / `supporting` / `reference`. The renderer gives core tasks the full treatment (prerequisites, steps, expected results, common problems, screenshots); supporting tasks stay brief but render any `result` and `common_problems` that are actually provided (never silently dropped); reference tasks render purpose, entry, and steps only (screenshots and problem sections are not rendered).
+- `covers_modules`: explicit declaration that this user task already carries the content of these modules (names must match `modules[].name` exactly). Use it when generating both `tasks` and `modules` so task sections and the module index do not duplicate content. Only declare coverage after confirming that the module's usage-affecting limits, steps, results, and warnings have actually been moved into the task. When any task provides `covers_modules`, the renderer uses ONLY these explicit mappings (entry text is not consulted); when no task provides it, the renderer falls back to matching module names inside「」in task entries for backward compatibility.
 - `steps`: string steps or object steps (see below).
 - `result`: what the user should see or where the result lands.
 - `common_problems`: FAQ entries phrased as real user questions.
 - `screenshots`: task-level fallback screenshots.
 
-When `tasks` are present, a module whose name appears in a task entry renders as a query-level index entry (name + purpose) so task content is not duplicated; modules not covered by any task render in full so their details are not lost. Without `tasks`, `modules` render in full as before.
+When `tasks` are present, a module covered by a task (via `covers_modules`, or via the「」entry heuristic when no explicit mapping exists) renders as a query-level index entry (name + purpose) so task content is not duplicated; modules not covered by any task render in full so their details are not lost. Without `tasks`, `modules` render in full as before.
 When a module is covered by a task, make sure the task steps carry that module's key details so nothing important is left only in the index entry.
 
 ### Steps
@@ -250,7 +251,7 @@ If the UI itself shows an English state, keep the real state text and add a shor
 
 Use screenshots when they help a colleague recognize a page, button, or output. Place each screenshot as close as possible to the step it illustrates (step-level `screenshot`), instead of stacking all screenshots at the end of a module. Module/task-level `screenshots` remain the fallback.
 
-The same screenshot path is inserted only once per document; repeated references (for example the same image at step level and task level) do not produce duplicate images.
+The same screenshot path is inserted only once per task (or per module); a step-level screenshot and that task's fallback screenshots share one deduplication scope, so the same image is not repeated inside one task. The same image MAY appear again in a different task or module, because screenshots should sit next to the steps they explain. Page-level blocks (Quick Start and Recommended Workflow) each deduplicate independently as well. Figure numbers stay globally sequential across the document.
 
 Good targets:
 

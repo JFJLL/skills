@@ -44,12 +44,18 @@ def as_list(value: Any) -> list[Any]:
 
 
 def plain_text(value: Any) -> str:
-    """Text for user-facing fields; lists are joined, non-text is ignored
-    (never leaks Python repr into the document)."""
+    """Unified user-facing text helper.
+
+    - str: trimmed as-is.
+    - list: string items joined with 「；」; non-string items are skipped.
+    - anything else (dict, number, bool, nested structures): empty string.
+
+    Never leaks a Python repr into the document.
+    """
     if isinstance(value, str):
         return value.strip()
     if isinstance(value, list):
-        return "；".join(text(item) for item in value if text(item))
+        return "；".join(item.strip() for item in value if isinstance(item, str) and item.strip())
     return ""
 
 
@@ -85,11 +91,10 @@ def product_name_from_title(title: str) -> str:
 
 
 class DocState:
-    """Per-document mutable state (figure numbering, image dedupe)."""
+    """Per-document mutable state (global figure numbering)."""
 
     def __init__(self) -> None:
         self.figure_counter = 0
-        self.seen_images: set[str] = set()
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +163,7 @@ def add_header_footer(doc: Document, title: str, version_date: str) -> None:
     footer_para.text = ""
     footer_para.paragraph_format.tab_stops.add_tab_stop(Inches(6.5), WD_TAB_ALIGNMENT.RIGHT)
 
-    left_run = footer_para.add_run(f"版本日期：{text(version_date) or '未注明'} | ")
+    left_run = footer_para.add_run(f"版本日期：{plain_text(version_date) or '未注明'} | ")
     left_run.font.size = Pt(9)
     set_run_font(left_run)
     footer_para.add_run("\t")
@@ -211,7 +216,7 @@ def _add_page_field(paragraph: Any) -> None:
 
 
 def add_paragraph(doc: Document, value: Any, style: str | None = None) -> None:
-    content = text(value)
+    content = plain_text(value)
     if not content:
         return
     para = doc.add_paragraph(style=style)
@@ -221,7 +226,7 @@ def add_paragraph(doc: Document, value: Any, style: str | None = None) -> None:
 
 def add_bullets(doc: Document, items: Any) -> None:
     for item in as_list(items):
-        content = text(item)
+        content = plain_text(item)
         if not content:
             continue
         para = doc.add_paragraph(style="List Bullet")
@@ -234,6 +239,7 @@ def add_steps(
     items: Any,
     base_dir: Path,
     state: DocState,
+    seen: set[str],
     with_screenshots: bool = True,
 ) -> None:
     """Numbered steps. Accepts plain strings and V2 step objects.
@@ -241,7 +247,7 @@ def add_steps(
     Every independent step block restarts at ``1.``. Step objects may carry
     ``expected_result`` / ``warning`` / ``tip`` callouts and a ``screenshot``.
     """
-    items = [item for item in as_list(items) if isinstance(item, dict) or text(item)]
+    items = [item for item in as_list(items) if isinstance(item, dict) or plain_text(item)]
     for index, item in enumerate(items, start=1):
         if isinstance(item, dict):
             action = plain_text(item.get("action")) or plain_text(item.get("text"))
@@ -261,9 +267,9 @@ def add_steps(
             if tip:
                 add_callout(doc, "建议", tip, "EAF1F8")
             if with_screenshots and item.get("screenshot"):
-                add_screenshots(doc, item.get("screenshot"), base_dir, state)
+                add_screenshots(doc, item.get("screenshot"), base_dir, state, seen)
         else:
-            content = text(item)
+            content = plain_text(item)
             if not content:
                 continue
             para = doc.add_paragraph()
@@ -279,13 +285,13 @@ def clean_steps(items: Any) -> list[Any]:
     for item in as_list(items):
         if isinstance(item, dict):
             cleaned.append(item)
-        elif text(item):
+        elif plain_text(item):
             cleaned.append(item)
     return cleaned
 
 
 def add_callout(doc: Document, label: str, content: Any, fill: str) -> None:
-    body = text(content)
+    body = plain_text(content)
     if not body:
         return
     table = doc.add_table(rows=1, cols=1)
@@ -315,7 +321,7 @@ def add_callout(doc: Document, label: str, content: Any, fill: str) -> None:
 
 
 def add_key_value_table(doc: Document, rows: list[tuple[str, str]]) -> None:
-    rows = [(k, v) for k, v in rows if text(v)]
+    rows = [(k, v) for k, v in rows if plain_text(v)]
     if not rows:
         return
     table = doc.add_table(rows=1, cols=2)
@@ -343,6 +349,7 @@ def add_screenshots(
     screenshots: Any,
     base_dir: Path,
     state: DocState,
+    seen: set[str],
     image_width: float = 5.8,
 ) -> None:
     for shot in as_list(screenshots):
@@ -350,7 +357,7 @@ def add_screenshots(
             path_value = shot
             caption = ""
         elif isinstance(shot, dict):
-            path_value = text(shot.get("path"))
+            path_value = plain_text(shot.get("path"))
             caption = plain_text(shot.get("caption"))
         else:
             # Malformed entry (number, null, nested list): never crash.
@@ -359,11 +366,11 @@ def add_screenshots(
             continue
         image_path = resolve_path(path_value, base_dir)
         key = normalize_path_key(image_path)
-        if key in state.seen_images:
+        if key in seen:
             continue
         if not image_path.exists():
             add_paragraph(doc, f"截图缺失：{path_value}")
-            state.seen_images.add(key)
+            seen.add(key)
             continue
         para = None
         try:
@@ -374,7 +381,7 @@ def add_screenshots(
             run = para.add_run()
             run.add_picture(str(image_path), width=Inches(image_width))
             state.figure_counter += 1
-            state.seen_images.add(key)
+            seen.add(key)
 
             cap = doc.add_paragraph()
             cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -385,7 +392,7 @@ def add_screenshots(
             cap_run.font.size = Pt(9)
             set_run_font(cap_run)
         except Exception as exc:
-            state.seen_images.add(key)
+            seen.add(key)
             if para is not None:
                 para._element.getparent().remove(para._element)
             print(f"截图无法插入：{path_value}（{exc}）", file=sys.stderr)
@@ -397,7 +404,13 @@ def add_screenshots(
 # ---------------------------------------------------------------------------
 
 
-def add_section(doc: Document, section: dict[str, Any], base_dir: Path, state: DocState) -> None:
+def add_section(
+    doc: Document,
+    section: dict[str, Any],
+    base_dir: Path,
+    state: DocState,
+    seen: set[str],
+) -> None:
     heading = plain_text(section.get("heading"))
     kind = text(section.get("kind")).lower() or "paragraph"
     if kind in {"steps", "numbered", "numbers"}:
@@ -406,9 +419,9 @@ def add_section(doc: Document, section: dict[str, Any], base_dir: Path, state: D
             return
         if heading:
             doc.add_heading(heading, level=3)
-        add_steps(doc, items, base_dir, state)
+        add_steps(doc, items, base_dir, state, seen)
     elif kind in {"bullets", "bullet", "list"}:
-        items = [i for i in as_list(section.get("items") or section.get("body")) if text(i)]
+        items = [i for i in as_list(section.get("items") or section.get("body")) if plain_text(i)]
         if not items:
             return
         if heading:
@@ -420,13 +433,13 @@ def add_section(doc: Document, section: dict[str, Any], base_dir: Path, state: D
             if isinstance(row, dict):
                 rows.append(
                     (
-                        text(row.get("key") or row.get("name") or row.get("项目")),
-                        text(row.get("value") or row.get("description") or row.get("说明")),
+                        plain_text(row.get("key") or row.get("name") or row.get("项目")),
+                        plain_text(row.get("value") or row.get("description") or row.get("说明")),
                     )
                 )
             elif isinstance(row, (list, tuple)) and len(row) >= 2:
-                rows.append((text(row[0]), text(row[1])))
-        rows = [(k, v) for k, v in rows if text(k) or text(v)]
+                rows.append((plain_text(row[0]), plain_text(row[1])))
+        rows = [(k, v) for k, v in rows if plain_text(k) or plain_text(v)]
         if not rows:
             return
         if heading:
@@ -436,7 +449,7 @@ def add_section(doc: Document, section: dict[str, Any], base_dir: Path, state: D
         body = section.get("body")
         if body is None:
             body = section.get("items")
-        paragraphs = [p for p in as_list(body) if text(p)]
+        paragraphs = [p for p in as_list(body) if plain_text(p)]
         if not paragraphs:
             return
         if heading:
@@ -445,14 +458,20 @@ def add_section(doc: Document, section: dict[str, Any], base_dir: Path, state: D
             add_paragraph(doc, paragraph)
 
 
-def add_legacy_module_sections(doc: Document, module: dict[str, Any], base_dir: Path, state: DocState) -> None:
+def add_legacy_module_sections(
+    doc: Document,
+    module: dict[str, Any],
+    base_dir: Path,
+    state: DocState,
+    seen: set[str],
+) -> None:
     if [i for i in as_list(module.get("scenarios")) if isinstance(i, str) and i.strip()]:
         doc.add_heading("适用场景", level=3)
         add_bullets(doc, module.get("scenarios"))
 
     if clean_steps(module.get("steps")):
         doc.add_heading("操作步骤", level=3)
-        add_steps(doc, clean_steps(module.get("steps")), base_dir, state)
+        add_steps(doc, clean_steps(module.get("steps")), base_dir, state, seen)
 
     if [i for i in as_list(module.get("key_outputs")) if isinstance(i, str) and i.strip()]:
         doc.add_heading("重点结果", level=3)
@@ -467,17 +486,18 @@ def add_module_full(doc: Document, module: dict[str, Any], base_dir: Path, state
     name = plain_text(module.get("name"))
     if not name:
         return
+    seen: set[str] = set()
     doc.add_heading(name, level=2)
     add_paragraph(doc, plain_text(module.get("purpose")))
 
     sections = [section for section in as_list(module.get("sections")) if isinstance(section, dict)]
     if sections:
         for section in sections:
-            add_section(doc, section, base_dir, state)
+            add_section(doc, section, base_dir, state, seen)
     else:
-        add_legacy_module_sections(doc, module, base_dir, state)
+        add_legacy_module_sections(doc, module, base_dir, state, seen)
 
-    add_screenshots(doc, module.get("screenshots"), base_dir, state)
+    add_screenshots(doc, module.get("screenshots"), base_dir, state, seen)
 
 
 def add_modules(doc: Document, modules: Any, base_dir: Path, state: DocState) -> None:
@@ -499,10 +519,20 @@ ENTRY_FRAGMENT_RE = re.compile(r"「([^」]+)」")
 
 
 def module_covered_by_tasks(module_name: str, tasks: list[dict[str, Any]]) -> bool:
-    """True when at least one task entry names this module inside「」, i.e.
-    the task section already carries the module's usage details. Exact match
-    against quoted UI names avoids substring false positives (e.g. module
-    「记录」 vs entry「历史记录」)."""
+    """True when a task already carries this module's usage details.
+
+    Explicit mapping wins: if any task provides ``covers_modules``, only
+    those exact names count (entry text is NOT consulted). Otherwise, fall
+    back to the legacy heuristic that matches module names inside「」in
+    task entries (exact fragment match, no substring false positives).
+    """
+    has_explicit = any("covers_modules" in task and isinstance(task.get("covers_modules"), list) for task in tasks)
+    if has_explicit:
+        for task in tasks:
+            for name in as_list(task.get("covers_modules")):
+                if plain_text(name) == module_name:
+                    return True
+        return False
     for task in tasks:
         entry = plain_text(task.get("entry"))
         if not entry:
@@ -521,7 +551,7 @@ PRIORITY_LABELS = {"core": "核心", "supporting": "辅助", "reference": "参�
 
 
 def add_task_prerequisites(doc: Document, prerequisites: Any) -> None:
-    items = [text(i) for i in as_list(prerequisites) if text(i)]
+    items = [plain_text(i) for i in as_list(prerequisites) if plain_text(i)]
     if not items:
         return
     doc.add_heading("开始前需要", level=3)
@@ -539,10 +569,10 @@ def add_task_common_problems(doc: Document, problems: Any) -> None:
     doc.add_heading("常见问题", level=3)
     for item in items:
         if isinstance(item, dict):
-            question = text(item.get("question"))
-            answer = text(item.get("answer"))
+            question = plain_text(item.get("question"))
+            answer = plain_text(item.get("answer"))
         else:
-            question = text(item)
+            question = plain_text(item)
             answer = ""
         if not question:
             continue
@@ -562,6 +592,7 @@ def add_task(doc: Document, task: dict[str, Any], base_dir: Path, state: DocStat
     title = plain_text(task.get("title"))
     if not title:
         return
+    seen: set[str] = set()
     priority = text(task.get("priority")).lower()
     tag = PRIORITY_LABELS.get(priority, "")
 
@@ -591,20 +622,13 @@ def add_task(doc: Document, task: dict[str, Any], base_dir: Path, state: DocStat
         # Lookup-level information only: purpose, entry, short steps.
         if steps:
             doc.add_heading("操作步骤", level=3)
-            add_steps(doc, steps, base_dir, state, with_screenshots=False)
+            add_steps(doc, steps, base_dir, state, seen, with_screenshots=False)
     elif priority == "supporting":
         add_task_prerequisites(doc, task.get("prerequisites"))
         if steps:
             doc.add_heading("操作步骤", level=3)
-            add_steps(doc, steps, base_dir, state)
-        add_screenshots(doc, task.get("screenshots"), base_dir, state)
-    else:
-        # core; also the default for missing/unknown priority so no content
-        # is silently dropped.
-        add_task_prerequisites(doc, task.get("prerequisites"))
-        if steps:
-            doc.add_heading("操作步骤", level=3)
-            add_steps(doc, steps, base_dir, state)
+            add_steps(doc, steps, base_dir, state, seen)
+        # Never silently drop explicitly provided result / common problems.
         result = task.get("result")
         result_items = [r for r in as_list(result) if plain_text(r)]
         if result_items:
@@ -614,7 +638,24 @@ def add_task(doc: Document, task: dict[str, Any], base_dir: Path, state: DocStat
             else:
                 add_paragraph(doc, result)
         add_task_common_problems(doc, task.get("common_problems"))
-        add_screenshots(doc, task.get("screenshots"), base_dir, state)
+        add_screenshots(doc, task.get("screenshots"), base_dir, state, seen)
+    else:
+        # core; also the default for missing/unknown priority so no content
+        # is silently dropped.
+        add_task_prerequisites(doc, task.get("prerequisites"))
+        if steps:
+            doc.add_heading("操作步骤", level=3)
+            add_steps(doc, steps, base_dir, state, seen)
+        result = task.get("result")
+        result_items = [r for r in as_list(result) if plain_text(r)]
+        if result_items:
+            doc.add_heading("完成后你会看到", level=3)
+            if isinstance(result, list):
+                add_bullets(doc, result_items)
+            else:
+                add_paragraph(doc, result)
+        add_task_common_problems(doc, task.get("common_problems"))
+        add_screenshots(doc, task.get("screenshots"), base_dir, state, seen)
 
 
 def add_faq(doc: Document, faq: Any) -> None:
@@ -646,19 +687,45 @@ def add_first_page(
     at_a_glance: dict[str, Any],
     overview: str,
     quick_start: list[str],
+    tasks: list[dict[str, Any]],
     modules: list[dict[str, Any]],
     usage_rules: list[str],
     base_dir: Path,
     state: DocState,
 ) -> dict[str, Any]:
     what = plain_text(at_a_glance.get("what_it_does")) or overview
-    top_tasks = [plain_text(t) for t in as_list(at_a_glance.get("top_tasks")) if plain_text(t)][:5]
+    top_tasks: list[str] = []
+    seen_top: set[str] = set()
+    for item in as_list(at_a_glance.get("top_tasks")):
+        task_name = plain_text(item)
+        if task_name and task_name not in seen_top:
+            seen_top.add(task_name)
+            top_tasks.append(task_name)
+        if len(top_tasks) >= 5:
+            break
     if not top_tasks:
-        top_tasks = [plain_text(m.get("name")) for m in modules[:5] if plain_text(m.get("name"))]
+        # Task-oriented fallback: task titles first, then module names.
+        seen_titles: set[str] = set()
+        for task in tasks:
+            title = plain_text(task.get("title"))
+            if title and title not in seen_titles:
+                seen_titles.add(title)
+                top_tasks.append(title)
+            if len(top_tasks) >= 5:
+                break
+    if not top_tasks:
+        seen_modules: set[str] = set()
+        for module in modules:
+            name = plain_text(module.get("name"))
+            if name and name not in seen_modules:
+                seen_modules.add(name)
+                top_tasks.append(name)
+            if len(top_tasks) >= 5:
+                break
     before_start = [plain_text(b) for b in as_list(at_a_glance.get("before_you_start")) if plain_text(b)][:4]
     if not before_start and usage_rules:
         before_start = usage_rules[:4]
-    access_url = text(data.get("access_url"))
+    access_url = plain_text(data.get("access_url"))
 
     page1_had_content = bool(what or top_tasks or quick_start or before_start or access_url)
     if not page1_had_content:
@@ -673,7 +740,7 @@ def add_first_page(
         add_bullets(doc, top_tasks)
     if quick_start:
         doc.add_heading("第一次建议这样用", level=2)
-        add_steps(doc, quick_start, base_dir, state)
+        add_steps(doc, quick_start, base_dir, state, set())
     if before_start:
         doc.add_heading("开始前要知道", level=2)
         add_bullets(doc, before_start)
@@ -705,16 +772,16 @@ def render(data: dict[str, Any], output_path: Path, base_dir: Path) -> None:
     configure_document(doc)
     state = DocState()
 
-    title = text(data.get("title")) or "产品使用说明总结"
+    title = plain_text(data.get("title")) or "产品使用说明总结"
     title_para = doc.add_paragraph(style="Title")
     title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = title_para.add_run(title)
     set_run_font(run)
 
     subtitle_parts = [
-        text(data.get("subtitle")),
-        f"适用对象：{text(data.get('audience'))}" if text(data.get("audience")) else "",
-        f"版本日期：{text(data.get('version_date'))}" if text(data.get("version_date")) else "",
+        plain_text(data.get("subtitle")),
+        f"适用对象：{plain_text(data.get('audience'))}" if plain_text(data.get("audience")) else "",
+        f"版本日期：{plain_text(data.get('version_date'))}" if plain_text(data.get("version_date")) else "",
     ]
     subtitle = "    ".join(part for part in subtitle_parts if part)
     if subtitle:
@@ -743,15 +810,17 @@ def render(data: dict[str, Any], output_path: Path, base_dir: Path) -> None:
         or (isinstance(item, dict) and plain_text(item.get("answer")))
     ]
 
-    page1 = add_first_page(doc, data, at_a_glance, overview, quick_start, modules, usage_rules, base_dir, state)
+    page1 = add_first_page(
+        doc, data, at_a_glance, overview, quick_start, tasks, modules, usage_rules, base_dir, state
+    )
 
     metadata_rows = [
-        ("使用对象", text(data.get("audience"))),
-        ("文档范围", text(data.get("scope"))),
-        ("额度/账号规则", text(data.get("quota_rules") or data.get("account_rules"))),
-        ("输出位置", text(data.get("output_location"))),
+        ("使用对象", plain_text(data.get("audience"))),
+        ("文档范围", plain_text(data.get("scope"))),
+        ("额度/账号规则", plain_text(data.get("quota_rules") or data.get("account_rules"))),
+        ("输出位置", plain_text(data.get("output_location"))),
     ]
-    metadata_rows = [(k, v) for k, v in metadata_rows if text(v)]
+    metadata_rows = [(k, v) for k, v in metadata_rows if plain_text(v)]
     # Page 1 already shows what_it_does (or its overview fallback); a
     # standalone 简短说明 only makes sense when overview adds different text.
     standalone_overview = bool(overview and overview != page1.get("what_used", ""))
@@ -782,7 +851,7 @@ def render(data: dict[str, Any], output_path: Path, base_dir: Path) -> None:
 
     if standalone_workflow:
         doc.add_heading("推荐使用流程", level=1)
-        add_steps(doc, recommended, base_dir, state)
+        add_steps(doc, recommended, base_dir, state, set())
 
     if tasks:
         doc.add_heading("常用任务", level=1)
@@ -793,7 +862,7 @@ def render(data: dict[str, Any], output_path: Path, base_dir: Path) -> None:
         if tasks:
             doc.add_heading("功能索引", level=1)
             for module in modules:
-                name = text(module.get("name"))
+                name = plain_text(module.get("name"))
                 if module_covered_by_tasks(name, tasks):
                     # Task sections already carry the details; index entry
                     # avoids duplicating content.
@@ -812,7 +881,7 @@ def render(data: dict[str, Any], output_path: Path, base_dir: Path) -> None:
 
     add_faq(doc, faq_items)
 
-    add_header_footer(doc, title, text(data.get("version_date")))
+    add_header_footer(doc, title, plain_text(data.get("version_date")))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(output_path)

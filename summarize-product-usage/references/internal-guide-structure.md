@@ -47,6 +47,8 @@ Keep the real entry name next to each task:
 
 Only fall back to a module-oriented structure (按模块/页面) when the product genuinely has no task-shaped workflows.
 
+When both `tasks` and `modules` exist, declare the mapping explicitly with `covers_modules` on each task (exact `modules[].name` matches). Only declare a module covered after its usage-affecting limits, steps, results, and warnings are actually inside the task. Without `covers_modules`, the renderer falls back to matching module names inside「」in task entries; this heuristic must not be relied on as the primary business relationship.
+
 ## Weighting: core / supporting / reference
 
 Assign a weight to every feature instead of writing equal-length sections for everything.
@@ -66,7 +68,7 @@ Directly produces the user's main result. Include as much as possible:
 
 ### supporting
 
-Helper capabilities. Summarize briefly as needed: purpose, entry, steps, screenshots if useful. Skip result and problem sections unless they are genuinely needed.
+Helper capabilities. Summarize briefly as needed: purpose, entry, prerequisites, steps, screenshots if useful. If `result` or `common_problems` are provided in the JSON, they are rendered (the renderer never silently drops them); just don't force authors to write them for supporting tasks.
 
 ### reference
 
@@ -176,7 +178,7 @@ Renders approximately as:
 已经进入处理中时不要再次点击。
 ```
 
-`action` is required. Use `expected_result` for core flows, `warning` only for real risks, `tip` only when it genuinely helps. Screenshots attach to the step they illustrate (step-level `screenshot`), with module/task-level `screenshots` as fallback.
+`action` is required. Use `expected_result` for core flows, `warning` only for real risks, `tip` only when it genuinely helps. Screenshots attach to the step they illustrate (step-level `screenshot`), with module/task-level `screenshots` as fallback. The same image is deduplicated only within one task or module; the same screenshot may be reused in another task or module where it explains different steps.
 
 ## FAQ Rules
 
