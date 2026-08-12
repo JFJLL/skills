@@ -1,0 +1,118 @@
+{
+  "title": "内容趋势分析平台 公司内部同事使用说明",
+  "subtitle": "面向公司内部同事",
+  "audience": "公司内部普通员工（非技术）",
+  "version_date": "2026-08-12",
+  "access_url": "https://trends.internal.example.com/",
+  "at_a_glance": {
+    "what_it_does": "帮助同事快速了解最近值得关注的内容方向，并基于这些方向生成自己的内容。",
+    "top_tasks": [
+      "看看最近有什么热点",
+      "找优秀内容参考",
+      "生成自己的内容",
+      "找到之前生成的结果"
+    ],
+    "before_you_start": [
+      "部分生成操作会消耗额度。",
+      "任务进入「处理中」后不要重复提交。"
+    ]
+  },
+  "quick_start": [
+    "登录系统。",
+    "打开「趋势洞察」看热点。",
+    "在「内容生成」里提交第一个任务。"
+  ],
+  "recommended_workflow": [
+    "先看趋势确认方向。",
+    "再找优秀内容参考。",
+    "最后生成并保存内容。"
+  ],
+  "tasks": [
+    {
+      "title": "我要看看最近有什么热点",
+      "entry": "左侧菜单「趋势洞察」",
+      "purpose": "查看当前值得关注的话题和内容方向。",
+      "prerequisites": ["已经登录系统", "账号有查看趋势的权限"],
+      "priority": "core",
+      "steps": [
+        {
+          "action": "点击左侧菜单「趋势洞察」。",
+          "expected_result": "页面显示热点排行和时间筛选。",
+          "warning": "页面还在加载时不要重复点击。",
+          "tip": "可以先按时间范围缩小列表。"
+        },
+        {
+          "action": "选择时间范围并点击「查看」。",
+          "expected_result": "列表更新为所选时间的热点。",
+          "screenshot": {"path": "images/sample.png", "caption": "趋势列表"}
+        }
+      ],
+      "result": ["热度排行", "每条热点的分析说明"],
+      "common_problems": [
+        {"question": "为什么这里没有可以选择的内容？", "answer": "请确认账号权限或联系管理员开通。"},
+        {"question": "为什么趋势列表加载很慢？", "answer": "热点数据较多时加载会慢一些，请稍等片刻。"}
+      ],
+      "screenshots": [{"path": "images/sample.png", "caption": "趋势洞察页面"}]
+    },
+    {
+      "title": "我要生成内容",
+      "entry": "顶部导航「内容生成」",
+      "purpose": "基于选定方向生成内容草稿。",
+      "prerequisites": ["已经确定内容方向", "账号有可用额度"],
+      "priority": "core",
+      "steps": [
+        "选择内容方向。",
+        {
+          "action": "点击「开始生成」。",
+          "expected_result": "任务状态变为「处理中」，页面显示排队信息。",
+          "warning": "处理中不要重复点击「开始生成」。",
+          "tip": "生成完成后结果会自动保存，可在「历史记录」查看。"
+        }
+      ],
+      "result": ["生成结果会保存在「历史记录」中", "完成后页面会显示结果预览"],
+      "common_problems": [
+        {"question": "为什么生成失败了？", "answer": "检查是否还有额度，或稍后重试。"}
+      ]
+    },
+    {
+      "title": "我要下载历史结果",
+      "entry": "左侧菜单「历史记录」",
+      "purpose": "找到之前生成的结果并下载。",
+      "priority": "supporting",
+      "steps": ["打开「历史记录」。", "找到目标任务。", "点击「下载」。"],
+      "screenshots": [{"path": "images/sample.png", "caption": "历史记录页面"}]
+    },
+    {
+      "title": "我要查看账号和额度信息",
+      "entry": "右上角头像菜单「账号设置」",
+      "purpose": "查看账号剩余额度和使用记录。",
+      "priority": "reference",
+      "steps": ["点击右上角头像。", "选择「账号设置」。"]
+    }
+  ],
+  "modules": [
+    {
+      "name": "趋势洞察",
+      "purpose": "查看热点与内容方向。",
+      "sections": [
+        {"heading": "什么时候用", "kind": "bullets", "items": ["早上看热点", "选题前确认方向"]}
+      ]
+    },
+    {
+      "name": "历史记录",
+      "purpose": "查询和下载之前生成的结果。",
+      "sections": [
+        {"heading": "怎么操作", "kind": "steps", "items": ["打开「历史记录」。", "点击「下载」。"]}
+      ],
+      "screenshots": [{"path": "images/sample.png", "caption": "历史列表"}]
+    }
+  ],
+  "usage_rules": [
+    "账号仅限内部使用。",
+    "生成内容发布前需人工核对。"
+  ],
+  "faq": [
+    {"question": "为什么一直显示「处理中」？", "answer": "系统会在后台继续处理，请稍等；不要重复提交。"},
+    {"question": "哪里可以看到以前的结果？", "answer": "在左侧「历史记录」中按时间查找。"}
+  ]
+}
