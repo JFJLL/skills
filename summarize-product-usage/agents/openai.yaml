@@ -1,0 +1,4 @@
+interface:
+  display_name: "Summarize Product Usage"
+  short_description: "Analyze a product project and write an internal DOCX usage guide."
+  default_prompt: "Analyze this product project and generate a polished internal DOCX usage guide."
