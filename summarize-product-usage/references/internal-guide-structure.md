@@ -1,224 +1,82 @@
-# Internal Product Usage Guide Structure
+# Writing and Structure Rules
 
-Use this reference when analyzing a project and writing a Chinese internal product usage manual in DOCX format.
+Read this reference when deciding document structure, task priority, wording, or FAQ coverage.
 
-## Default Reader
+## Reader and Tone
 
-The reader is an internal colleague with no technical background: no code, APIs, databases, architecture, task queues, or AI engineering. Every sentence must be understandable without development background.
+Write for an internal colleague who does not know code, APIs, databases, queues, models, or system architecture. Explain what they should do, what they will see, and what to do next.
 
-## Source-of-Truth Priority
+Keep real menu names, page names, button labels, and visible status text exactly as shown. Translate implementation language:
 
-1. Runnable UI and screenshots.
-2. Frontend routes, pages, navigation, components, form labels, buttons, and state text.
-3. Backend APIs, task models, upload handlers, quota checks, auth logic, and generated output paths.
-4. README, product specs, seed data, and tests.
-5. Existing usage manuals only as style references unless the user explicitly asks to summarize documents.
+| Avoid | Write instead |
+| --- | --- |
+| 任务进入 pending 后由 worker 异步消费。 | 提交后页面会显示「等待处理」，系统会在后台继续处理，不需要重复提交。 |
+| 请求通过 API endpoint 提交。 | 点击「提交」后，页面会显示任务状态。 |
+| 结果写入 database。 | 完成后结果会自动保存，可以在「历史记录」中找到。 |
 
-Never guess. Unverifiable facts (URLs, quotas, account rules, permissions, states, upload formats, file size limits, output locations) must be omitted or marked「未在项目中确认」.
+Do not exaggerate AI quality or hide prerequisites, limits, failure states, privacy risks, or quota consumption.
 
-## User-Task-Oriented Principle
+## Task-Oriented Structure
 
-Section headings should use the goal a user would actually express, not the technical module name.
-
-Correct:
-
-> 我要查看以前生成的结果
-
-Not:
-
-> Generation History Module
-
-Default document shape:
+Use a goal the user would actually say as each core heading:
 
 ```text
-我想要……
-├─ 我要看看最近有什么热点
-├─ 我要找优秀内容参考
-├─ 我要生成内容
-└─ 我要找到之前生成的结果
+我要找到以前生成的结果
+入口：左侧菜单「历史记录」
 ```
 
-Keep the real entry name next to each task:
+Do not use implementation headings such as「Generation History Module」. Fall back to page/module organization only when the product genuinely has no task-shaped workflow.
 
-```text
-我要看看最近有什么热点
-入口：左侧菜单「趋势洞察」
-```
+Give features unequal weight:
 
-Only fall back to a module-oriented structure (按模块/页面) when the product genuinely has no task-shaped workflows.
+- `core`: purpose, exact entry, prerequisites, full numbered steps, success signals, result location, common problems, risks, and screenshots.
+- `supporting`: purpose, entry, and only the steps/results needed to support a core task.
+- `reference`: purpose, entry, and a short lookup procedure.
 
-When both `tasks` and `modules` exist, declare the mapping explicitly with `covers_modules` on each task (exact `modules[].name` matches). Only declare a module covered after its usage-affecting limits, steps, results, and warnings are actually inside the task. Once any task contains the `covers_modules` key, explicit mode is active; malformed/non-list values cover nothing and never reactivate heuristic matching. Only when no task contains the key does the renderer fall back to matching module names inside「」in task entries; that heuristic must not be relied on as the primary business relationship.
+## First Page
 
-## Weighting: core / supporting / reference
+Make the first page answer within three minutes:
 
-Assign a weight to every feature instead of writing equal-length sections for everything.
+1. What does the product help me do?
+2. What are the 3–5 most common tasks?
+3. What is the shortest path to the first useful result?
+4. What 2–4 important things must I know before starting?
+5. Where is the confirmed system entry?
 
-### core
+Use `quick_start` for the shortest first-success path. Include `recommended_workflow` only when the product has a confirmed normal ordering across multiple capabilities. If it duplicates or extends Quick Start, render the longer sequence once as Quick Start.
 
-Directly produces the user's main result. Include as much as possible:
+## Steps and Screenshots
 
-- What it is used for.
-- Where to enter.
-- What you need before starting.
-- Operation steps.
-- What you should see after each step succeeds.
-- Where the final result is.
-- High-frequency problems.
-- Necessary screenshots.
+Write explicit text numbering: `1.`, `2.`, `3.`. Restart every independent step block from `1.`; do not rely on Word automatic numbering.
 
-### supporting
+For important actions, separate:
 
-Helper capabilities. Summarize briefly as needed: purpose, entry, prerequisites, steps, screenshots if useful. If `result` or `common_problems` are provided in the JSON, they are rendered (the renderer never silently drops them); just don't force authors to write them for supporting tasks.
+- action;
+- `expected_result` shown as「完成后」;
+- real risk shown as「注意」;
+- genuinely useful shortcut shown as「建议」.
 
-### reference
+Place each screenshot beside the step it proves. A screenshot is useful when it helps the reader recognize an entry, input, risk state, success state, or final result. Do not stack screenshots at the end merely to increase coverage.
 
-Settings, profile pages, low-frequency entries. Provide only enough to look things up: purpose, entry, and at most a short step list.
+## FAQ
 
-## First-Page 3-Minute Summary
+Phrase FAQ entries as real questions:
 
-Page 1 answers, in under 3 minutes of reading:
+- 为什么一直显示「处理中」？
+- 为什么这里没有可以选择的内容？
+- 完成后的结果在哪里？
 
-- What this product helps you do (one very short sentence).
-- The most common 3-5 things it is used for.
-- How to get the first useful result (Quick Start).
-- The 2-4 things to know before starting.
-- The system entry, when it can be confirmed from the project.
+Avoid technical titles such as「异步任务异常」or「数据源为空」. Include only problems supported by product behavior, tests, or runtime evidence.
 
-Version date, audience, and other metadata may exist but with lower visual weight. Detailed content starts after page 1.
+## Final Shape
 
-## Quick Start and Recommended Workflow
+A typical guide contains:
 
-Quick Start answers only:
+- first-page three-minute summary;
+- task-oriented core workflows;
+- short supporting notes;
+- reference lookups;
+- confirmed rules, limits, and security notes;
+- user-worded FAQ.
 
-> First time using this product, what is the shortest path to the first useful result?
-
-Keep it short. Recommended Workflow answers only:
-
-> During normal work, how should several capabilities be combined?
-
-Only include Recommended Workflow when a real ordering between capabilities exists in the project. If one clearly duplicates the other (equal, or one is a prefix), render the longer list once as Quick Start and skip Recommended Workflow.
-
-## Section Options
-
-Choose sections based on the product, not by filling a fixed template.
-
-- Title and metadata: product name, audience, access URL, version date, scope.
-- First-page 3-minute summary.
-- Task-oriented core workflow sections (entry, purpose, prerequisites, steps, expected results, result location, common problems, screenshots).
-- Secondary feature notes: short paragraphs or small lists for supporting features.
-- Reference entries: settings, profile pages, low-frequency pages.
-- Role-based usage: only when the project clearly supports different internal roles.
-- Rules and safety: quotas, duplicate task cautions, data confidentiality, API key/password warnings, AI output review.
-- FAQ: login failure, no selectable data, generation failed, slow response, bad output quality, missing quota.
-
-Do not add a final「问题反馈模板」section.
-
-## Plain Language Rules
-
-### Keep exactly as the product shows them
-
-- Menu names.
-- Button names.
-- Page names.
-- State text users actually see.
-
-### Convert to plain language by default
-
-```text
-API
-schema
-worker
-payload
-requestId
-async
-queue
-endpoint
-database
-model
-cron
-job
-```
-
-Examples:
-
-```text
-异步执行 → 系统会在后台继续处理
-pending → 等待处理
-```
-
-If the original UI itself displays an English state, keep that real state text and add one short plain-Chinese explanation.
-
-## Step Formatting
-
-- Render step blocks as visible text: `1. ...`, `2. ...`, `3. ...`
-- Restart every independent step block at `1.`
-- Do not rely on Word automatic numbering, because numbering can continue across sections after editing.
-- Do not merge a step's expected result, warning, and tip into one flat paragraph. Render them as visually distinct callouts（完成后 / 注意 / 建议）under the step.
-
-V2 object step:
-
-```json
-{
-  "action": "点击「开始分析」",
-  "expected_result": "页面出现「处理中」，说明任务已经成功提交。",
-  "warning": "已经进入处理中时不要再次点击。",
-  "tip": "可以稍后到任务历史中查看结果。"
-}
-```
-
-Renders approximately as:
-
-```text
-3. 点击「开始分析」
-
-完成后：
-页面出现「处理中」，说明已经成功提交。
-
-注意：
-已经进入处理中时不要再次点击。
-```
-
-`action` is required. Use `expected_result` for core flows, `warning` only for real risks, `tip` only when it genuinely helps. Screenshots attach to the step they illustrate (step-level `screenshot`), with module/task-level `screenshots` as fallback. The same image is deduplicated only within one task or module; the same screenshot may be reused in another task or module where it explains different steps.
-
-## FAQ Rules
-
-FAQ titles must be questions a normal user would actually ask:
-
-```text
-为什么一直显示「处理中」？
-为什么这里没有可以选择的内容？
-为什么生成失败了？
-```
-
-Avoid implementation-flavored titles:
-
-```text
-异步任务异常
-数据源为空
-AI 接口调用异常
-```
-
-## Writing Rules
-
-- Write for internal colleagues, not external customers.
-- Prefer「怎么用」and「建议怎么做」over feature marketing.
-- Keep button and menu names exactly as the product shows them.
-- Do not exaggerate AI output quality.
-- Do not hide prerequisites, limits, or failure states.
-- Do not include code-level implementation details unless they affect usage.
-- If screenshots are included, caption them as「图 1：...」in source order and place each near the step it supports.
-
-## Project Analysis Checklist
-
-- App entry and routing.
-- Login/account states and permission differences.
-- Main navigation labels.
-- Required inputs for each important flow.
-- Submit/generate/export buttons.
-- Task states and result locations.
-- Upload formats and file size limits.
-- Quota or credit consumption.
-- Empty, failed, loading, and completed states.
-- Download, share, report, or history behavior.
-
-After generating the DOCX, run `references/reader-test.md` and report the result honestly.
+Do not add a final「问题反馈模板」section. Keep the result businesslike and scannable: no dark full-page backgrounds, decorative graphics, or slide-style layouts.

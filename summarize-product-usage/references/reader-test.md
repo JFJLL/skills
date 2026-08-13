@@ -37,6 +37,12 @@ A cold reader must be able to answer all of these from the document alone:
    - Perform a structured self-check against the same questions and checks.
    - Explicitly mark in the final report:「未完成独立 Reader Test」.
 
+## Pass/Fail Rule
+
+The guide passes only when all eight questions are answered from the DOCX alone and each answer cites a page, heading, step, screenshot, or other document evidence. `answered` without evidence is not sufficient. Any `not answered`, vague core step, unexplained technical term, hidden prerequisite, detached screenshot, or unresolved contradiction fails the test.
+
+Fix every failure, regenerate the DOCX, and rerun the independent test. Do not weaken the questions or accept a partial score. The required delivery score is `8/8`.
+
 ## Result Reporting
 
-Report per question: answered / answered with evidence / not answered. List every gap found and whether it was fixed. State clearly whether the test was run by a genuinely fresh context or by self-check.
+Report per question: answered with evidence / not answered. List every gap found and whether it was fixed. State clearly whether the test was run by a genuinely fresh context or by self-check. A self-check may diagnose a draft but cannot satisfy the formal delivery gate when a fresh-context agent is available.

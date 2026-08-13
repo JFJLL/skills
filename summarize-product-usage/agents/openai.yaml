@@ -1,4 +1,4 @@
 interface:
   display_name: "Summarize Product Usage"
-  short_description: "面向公司内部非技术同事，从真实产品项目生成清晰、任务导向的 DOCX 使用指南。"
-  default_prompt: "分析这个产品项目，为完全不懂技术的公司内部同事生成一份任务导向、能独立上手的中文 DOCX 使用指南。"
+  short_description: "从真实产品生成经证据、完整截图、冷读和视觉验收的正式中文 DOCX 使用指南。"
+  default_prompt: "分析这个产品项目，为非技术内部同事生成可正式交付的中文 DOCX 使用指南；完整覆盖必要截图，并完成证据校验、严格预检、Reader Test 与逐页视觉验收。"

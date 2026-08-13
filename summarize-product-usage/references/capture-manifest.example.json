@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "id": "example-product-usage-guide",
+  "source_revision": "replace-with-git-commit-or-release-id",
+  "base_url": "http://127.0.0.1:3000",
+  "viewport": {
+    "width": 1440,
+    "height": 900,
+    "device_scale_factor": 1
+  },
+  "defaults": {
+    "timeout_ms": 20000,
+    "full_page": false
+  },
+  "roles": [
+    {
+      "name": "teacher",
+      "login": {
+        "mode": "actions",
+        "url": "/login",
+        "actions": [
+          {
+            "type": "fill",
+            "selector": "input[name='username']",
+            "value_env": "PRODUCT_TEACHER_USERNAME"
+          },
+          {
+            "type": "fill",
+            "selector": "input[name='password']",
+            "value_env": "PRODUCT_TEACHER_PASSWORD"
+          },
+          {
+            "type": "click",
+            "selector": "button[type='submit']"
+          }
+        ],
+        "ready": {
+          "selector": "[data-page='teacher-home']",
+          "network_idle_ms": 800,
+          "timeout_ms": 30000
+        }
+      },
+      "pages": [
+        {
+          "name": "course-list",
+          "url": "/teacher/courses",
+          "ready": {
+            "selector": "[data-page='course-list']",
+            "network_idle_ms": 800,
+            "wait_ms": 300
+          },
+          "file": "01-course-list.png"
+        },
+        {
+          "name": "add-teacher-dialog",
+          "url": "/teacher/courses",
+          "actions": [
+            {
+              "type": "click",
+              "selector": "[data-action='open-add-teacher']"
+            }
+          ],
+          "ready": {
+            "selector": "[role='dialog'][data-dialog='add-teacher']",
+            "wait_ms": 300
+          },
+          "file": "02-add-teacher-dialog.png",
+          "full_page": false
+        }
+      ]
+    },
+    {
+      "name": "student",
+      "login": {
+        "mode": "manual",
+        "url": "/login",
+        "ready": {
+          "selector": "[data-page='student-home']",
+          "timeout_ms": 180000
+        }
+      },
+      "pages": [
+        {
+          "name": "assignment-list",
+          "url": "/student/assignments",
+          "ready": {
+            "text": "我的作业",
+            "network_idle_ms": 800
+          },
+          "file": "01-assignment-list.png"
+        }
+      ]
+    }
+  ]
+}

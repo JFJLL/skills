@@ -226,8 +226,50 @@ class TestLegacy(RendererTestBase):
         paras = [p.text for p in self.open_docx(output).paragraphs]
         self.assertIn("常用任务", paras)
 
+    def test_atomic_save_replaces_existing_document(self) -> None:
+        output = self.tmpdir / "atomic.docx"
+        output.write_bytes(b"previous deliverable")
+        data = self.load_fixture("minimal-v2.json")
+
+        self.renderer.render(data, output, FIXTURES)
+
+        self.open_docx(output)
+        self.assertNotEqual(output.read_bytes(), b"previous deliverable")
+        self.assertEqual(list(self.tmpdir.glob(".*.tmp.docx")), [])
+
+    def test_atomic_save_preserves_existing_document_when_save_fails(self) -> None:
+        output = self.tmpdir / "atomic-failure.docx"
+        previous = b"previous deliverable"
+        output.write_bytes(previous)
+        data = self.load_fixture("minimal-v2.json")
+        document_class = type(self.renderer.Document())
+        original_save = document_class.save
+
+        def fail_save(_doc, _path):
+            raise OSError("simulated save failure")
+
+        document_class.save = fail_save
+        try:
+            with self.assertRaisesRegex(OSError, "simulated save failure"):
+                self.renderer.render(data, output, FIXTURES)
+        finally:
+            document_class.save = original_save
+
+        self.assertEqual(output.read_bytes(), previous)
+        self.assertEqual(list(self.tmpdir.glob(".*.tmp.docx")), [])
+
 
 class TestV2(RendererTestBase):
+    def test_screenshots_fill_document_text_width_for_feishu_import(self) -> None:
+        out = self.render_fixture("full-v2.json")
+        doc = self.open_docx(out)
+        section = doc.sections[0]
+        expected_width = section.page_width - section.left_margin - section.right_margin
+
+        self.assertGreater(len(doc.inline_shapes), 0)
+        for shape in doc.inline_shapes:
+            self.assertEqual(shape.width, expected_width)
+
     def test_at_a_glance_first_page(self) -> None:
         out = self.render_fixture("full-v2.json")
         paras = [p.text for p in self.open_docx(out).paragraphs]

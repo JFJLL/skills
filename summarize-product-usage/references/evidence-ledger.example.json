@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "product": "示例产品",
+  "captured_at": "2026-08-13T14:30:00+08:00",
+  "claims": [
+    {
+      "claim_id": "teacher-batch-import-entry",
+      "claim": "管理员可以从教师管理页进入批量导入流程。",
+      "type": "ui_behavior",
+      "source": "运行中的管理后台",
+      "source_locator": "/admin/teachers，按钮「批量导入」",
+      "runtime_verified": true,
+      "confidence": "high",
+      "status": "confirmed",
+      "conflict": null
+    },
+    {
+      "claim_id": "teacher-import-permission",
+      "claim": "只有管理员角色可以批量导入教师。",
+      "type": "permission",
+      "source": "服务端权限实现",
+      "source_locator": "src/server/routes/teachers.ts:42",
+      "runtime_verified": false,
+      "confidence": "high",
+      "status": "confirmed",
+      "conflict": {
+        "status": "resolved",
+        "detail": "旧说明称教务角色也可操作。",
+        "resolution": "以当前服务端权限判断为准，旧说明已标记过期。"
+      }
+    },
+    {
+      "claim_id": "teacher-import-tip",
+      "claim": "导入页会提示先下载模板。",
+      "type": "ui_text",
+      "source": "前端页面源码",
+      "source_locator": "src/pages/admin/TeacherImport.tsx:18",
+      "runtime_verified": false,
+      "confidence": "medium",
+      "status": "pending",
+      "critical": false,
+      "conflict": null
+    }
+  ]
+}

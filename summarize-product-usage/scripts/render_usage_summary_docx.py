@@ -13,6 +13,7 @@ import math
 import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -364,14 +365,21 @@ def resolve_path(raw_path: str, base_dir: Path) -> Path:
     return base_dir / path
 
 
+def document_text_width(doc: Document) -> int:
+    """Return the page body width so Feishu imports images at text width."""
+    section = doc.sections[0]
+    return section.page_width - section.left_margin - section.right_margin
+
+
 def add_screenshots(
     doc: Document,
     screenshots: Any,
     base_dir: Path,
     state: DocState,
     seen: set[str],
-    image_width: float = 5.8,
+    image_width: int | None = None,
 ) -> None:
+    target_width = image_width if image_width is not None else document_text_width(doc)
     for shot in as_list(screenshots):
         if isinstance(shot, str):
             path_value = shot
@@ -399,7 +407,11 @@ def add_screenshots(
             para.paragraph_format.space_before = Pt(6)
             para.paragraph_format.keep_with_next = True
             run = para.add_run()
-            run.add_picture(str(image_path), width=Inches(image_width))
+            # Always occupy the full body width by default. python-docx keeps
+            # the original aspect ratio, and Feishu preserves this explicit
+            # width when importing the DOCX, so users do not need to resize
+            # every screenshot manually after upload.
+            run.add_picture(str(image_path), width=target_width)
             state.figure_counter += 1
             seen.add(key)
 
@@ -789,6 +801,31 @@ def _steps_overlap(a: list[str], b: list[str]) -> bool:
     return longer[: len(shorter)] == shorter
 
 
+def save_document_atomic(doc: Document, output_path: Path) -> None:
+    """Save beside the destination, then replace it only after success.
+
+    A failed save or a destination locked by Word must not destroy the last
+    deliverable.  The temporary file stays on the same volume so os.replace()
+    is atomic on supported local filesystems.
+    """
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            prefix=f".{output_path.stem}.",
+            suffix=".tmp.docx",
+            dir=output_path.parent,
+            delete=False,
+        ) as handle:
+            temp_path = Path(handle.name)
+        doc.save(temp_path)
+        os.replace(temp_path, output_path)
+        temp_path = None
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
 # ---------------------------------------------------------------------------
 # Main render
 # ---------------------------------------------------------------------------
@@ -910,8 +947,7 @@ def render(data: dict[str, Any], output_path: Path, base_dir: Path) -> None:
 
     add_header_footer(doc, title, plain_text(data.get("version_date")))
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    doc.save(output_path)
+    save_document_atomic(doc, output_path)
 
 
 def main() -> None:
